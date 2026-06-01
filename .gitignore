@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# 환경변수
+.env
+.env.*
+
+# 원본 raw 데이터 (용량 큰 csv)
+data/car_features_data.csv
+data/car_purchase_data.csv
+data/preprocessing/
+
+# v1 모델 (211MB, GitHub 초과)
+model/model.pkl
+model/col_order.pkl
+
+# 학습 로그 / 임시
+*.log
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

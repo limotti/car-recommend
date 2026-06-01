@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 차량 추천 서비스</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .container {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.10);
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 520px;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #1a2b4a;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      font-size: 0.9rem;
+      color: #7a8fa6;
+      margin-bottom: 28px;
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #3a4a5c;
+      margin-bottom: 6px;
+    }
+    .hint {
+      font-size: 0.78rem;
+      color: #9aabb8;
+      font-weight: 400;
+    }
+
+    input[type="number"], select {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1.5px solid #dce4ed;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      color: #2c3e50;
+      background: #f8fafc;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+    input[type="number"]:focus, select:focus {
+      border-color: #3b82f6;
+      background: #fff;
+    }
+
+    .row2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    button:hover  { opacity: 0.92; }
+    button:active { transform: scale(0.98); }
+
+    /* 결과 영역 */
+    #result { display: none; margin-top: 28px; animation: fadeIn 0.4s ease; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+
+    /* 폴백 경고 배너 */
+    .fallback-banner {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      font-size: 0.84rem;
+      color: #92400e;
+    }
+    .fallback-banner.show { display: flex; }
+    .fallback-banner .icon { font-size: 1.1rem; flex-shrink: 0; }
+    .fallback-banner #fallback-msg-text { white-space: pre-line; line-height: 1.7; }
+
+    /* 카드 그리드 (TOP3일 때 3열) */
+    .card-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .card-grid.top3 { grid-template-columns: repeat(3, 1fr); }
+    @media (max-width: 560px) { .card-grid.top3 { grid-template-columns: 1fr; } }
+
+    /* 개별 결과 카드 */
+    .car-card {
+      background: #fff;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 차량 이미지 (16:9) */
+    .car-img-wrapper {
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      background: linear-gradient(135deg, #1a2b4a 0%, #2563eb 100%);
+      flex-shrink: 0;
+    }
+    .car-img-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.3s ease;
+    }
+    .car-card:hover .car-img-wrapper img { transform: scale(1.03); }
+
+    /* 정보 영역 */
+    .car-info-area {
+      background: linear-gradient(135deg, #1a2b4a, #2563eb);
+      padding: 18px 16px 14px;
+      color: #fff;
+      text-align: center;
+      flex: 1;
+    }
+    .car-info-area .rank-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.25);
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .car-info-area .brand-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.2);
+      border-radius: 20px;
+      padding: 3px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .car-info-area .car-label {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 10px;
+    }
+    .card-grid:not(.top3) .car-info-area .car-label { font-size: 2rem; }
+    .car-info-area .info-row {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .car-info-area .info-item {
+      background: rgba(255,255,255,0.15);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 0.8rem;
+    }
+    .car-info-area .info-item span {
+      display: block;
+      font-size: 0.68rem;
+      opacity: 0.75;
+      margin-bottom: 1px;
+    }
+
+    /* 공식 사이트 버튼 */
+    .official-btn {
+      display: block;
+      text-align: center;
+      padding: 12px 16px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #fff;
+      text-decoration: none;
+      letter-spacing: 0.2px;
+      transition: opacity 0.2s;
+    }
+    .official-btn:hover { opacity: 0.85; }
+
+    #error-msg {
+      display: none;
+      margin-top: 16px;
+      padding: 12px 16px;
+      background: #fff0f0;
+      border: 1px solid #fca5a5;
+      border-radius: 10px;
+      color: #dc2626;
+      font-size: 0.88rem;
+    }
+
+    .loading { opacity: 0.7; pointer-events: none; }
+    .required-star { color: #ef4444; margin-left: 2px; font-weight: 700; }
+    .field-error {
+      display: none;
+      font-size: 0.78rem;
+      color: #dc2626;
+      margin-top: 4px;
+    }
+
+    /* ── 챗봇 ───────────────────────────────────────── */
+    #chatbot-section {
+      display: none;
+      margin-top: 24px;
+      border: 1.5px solid #dce4ed;
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .chat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f8fafc;
+      padding: 12px 16px;
+      border-bottom: 1px solid #dce4ed;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #1a2b4a;
+    }
+    .chat-header button {
+      width: auto;
+      padding: 4px 12px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      background: #e2e8f0;
+      color: #475569;
+      border-radius: 8px;
+      margin-top: 0;
+    }
+    .chat-header button:hover { background: #cbd5e1; opacity: 1; }
+
+    #chat-messages {
+      height: 260px;
+      overflow-y: auto;
+      padding: 14px 14px 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: #fff;
+    }
+    .msg-row { display: flex; }
+    .msg-row.user  { justify-content: flex-end; }
+    .msg-row.bot   { justify-content: flex-start; }
+
+    .bubble {
+      max-width: 78%;
+      padding: 9px 14px;
+      border-radius: 16px;
+      font-size: 0.88rem;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .msg-row.user .bubble {
+      background: #2563eb;
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .msg-row.bot .bubble {
+      background: #f1f5f9;
+      color: #1e293b;
+      border-bottom-left-radius: 4px;
+    }
+    .bubble.typing { color: #94a3b8; font-style: italic; }
+
+    .chat-input-row {
+      display: flex;
+      gap: 8px;
+      padding: 10px 12px;
+      border-top: 1px solid #dce4ed;
+      background: #f8fafc;
+    }
+    .chat-input-row input {
+      flex: 1;
+      padding: 9px 12px;
+      border: 1.5px solid #dce4ed;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      outline: none;
+      background: #fff;
+    }
+    .chat-input-row input:focus { border-color: #3b82f6; }
+    .chat-input-row button {
+      width: auto;
+      padding: 9px 16px;
+      font-size: 0.88rem;
+      border-radius: 10px;
+      margin-top: 0;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>🚗 내 조건에 맞는 첫차 추천 서비스</h1>
+  <p class="subtitle">현대/기아/제네시스 차종을 조건에 맞게 추천해드려요</p>
+
+  <form id="recommend-form">
+
+    <div class="row2">
+      <div class="form-group">
+        <label>월 소득 <span class="required-star">*</span> <span class="hint">(만원)</span></label>
+        <input type="number" id="income" placeholder="예: 350" min="0" max="9999" required />
+      </div>
+      <div class="form-group">
+        <label>초기 보유 자금 <span class="required-star">*</span> <span class="hint">(만원)</span></label>
+        <input type="number" id="budget" placeholder="예: 1500" min="0" max="99999" required />
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="form-group">
+        <label>가족 수 <span class="required-star">*</span> <span class="hint">(본인 포함, 명)</span></label>
+        <input type="number" id="family" placeholder="예: 3" min="1" max="10" required />
+      </div>
+      <div class="form-group">
+        <label>운전 경력 <span class="required-star">*</span></label>
+        <select id="experience" required>
+          <option value="" disabled selected>선택해주세요</option>
+          <option value="1년미만">1년 미만</option>
+          <option value="1~3년">1~3년</option>
+          <option value="3년이상">3년 이상</option>
+        </select>
+        <span class="field-error" id="experience-error">운전경력을 선택해주세요.</span>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="form-group">
+        <label>주 용도</label>
+        <select id="purpose">
+          <option value="출퇴근">출퇴근</option>
+          <option value="레저">레저</option>
+          <option value="가족용">가족용</option>
+          <option value="업무">업무</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>연료 타입 선호</label>
+        <select id="fuel">
+          <option value="상관없음">상관없음</option>
+          <option value="가솔린">가솔린</option>
+          <option value="하이브리드">하이브리드</option>
+          <option value="전기">전기</option>
+          <option value="디젤">디젤</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>거주 지역</label>
+      <select id="region">
+        <option value="도심">도심</option>
+        <option value="지방">지방</option>
+      </select>
+    </div>
+
+    <button type="submit" id="submit-btn">추천 받기</button>
+  </form>
+
+  <div id="error-msg"></div>
+
+  <!-- 챗봇 섹션 (추천 결과 후 표시) -->
+  <div id="chatbot-section">
+    <div class="chat-header">
+      <span>🤖 AI 상담사에게 더 물어보세요</span>
+      <button id="chat-reset-btn">대화 초기화</button>
+    </div>
+    <div id="chat-messages"></div>
+    <div class="chat-input-row">
+      <input type="text" id="chat-input" placeholder="궁금한 점을 입력하세요..." maxlength="200" />
+      <button id="chat-send-btn">전송</button>
+    </div>
+  </div>
+
+  <div id="result">
+    <!-- 폴백 안내 배너 -->
+    <div class="fallback-banner" id="fallback-banner">
+      <span class="icon">⚠️</span>
+      <span id="fallback-msg-text"></span>
+    </div>
+    <!-- 결과 카드 (단일 or TOP3 그리드) -->
+    <div class="card-grid" id="card-grid"></div>
+  </div>
+</div>
+
+<script>
+  const form = document.getElementById("recommend-form");
+  const btn  = document.getElementById("submit-btn");
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    document.getElementById("result").style.display    = "none";
+    document.getElementById("error-msg").style.display = "none";
+    btn.textContent = "분석 중...";
+    btn.classList.add("loading");
+
+    // 운전경력 필수 검사
+    const expEl  = document.getElementById("experience");
+    const expErr = document.getElementById("experience-error");
+    if (!expEl.value) {
+      expErr.style.display = "block";
+      expEl.focus();
+      btn.textContent = "추천 받기";
+      btn.classList.remove("loading");
+      return;
+    }
+    expErr.style.display = "none";
+
+    const payload = {
+      월소득:   parseInt(document.getElementById("income").value),
+      초기자금: parseInt(document.getElementById("budget").value),
+      가족수:   parseInt(document.getElementById("family").value),
+      주용도:   document.getElementById("purpose").value,
+      연료선호: document.getElementById("fuel").value,
+      운전경력: document.getElementById("experience").value,
+      거주지역: document.getElementById("region").value,
+    };
+
+    try {
+      const res  = await fetch("/predict", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(payload),
+      });
+      const data = await res.json();
+
+      if (data.error) {
+        showError(data.error);
+      } else {
+        renderResult(data);
+        initChatbot(data, payload);   // 챗봇 컨텍스트 설정
+      }
+    } catch (err) {
+      showError("서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      btn.textContent = "추천 받기";
+      btn.classList.remove("loading");
+    }
+  });
+
+  function renderResult(data) {
+    const grid    = document.getElementById("card-grid");
+    const banner  = document.getElementById("fallback-banner");
+    const msgText = document.getElementById("fallback-msg-text");
+    const isTop3  = data.fallback_level === 3;
+
+    // 폴백 배너
+    if (data.fallback_message) {
+      msgText.textContent = data.fallback_message;
+      banner.classList.add("show");
+    } else {
+      banner.classList.remove("show");
+    }
+
+    // 카드 그리드
+    grid.className = "card-grid" + (isTop3 ? " top3" : "");
+    grid.innerHTML = "";
+
+    const RANK_LABELS   = ["1순위", "2순위", "3순위"];
+    const BRAND_COLORS  = {"현대": "#002C5F", "기아": "#BB162B", "제네시스": "#B49A6A"};
+
+    data.results.forEach((car, idx) => {
+      const card      = document.createElement("div");
+      card.className  = "car-card";
+      const btnColor  = BRAND_COLORS[car.brand] || "#1a2b4a";
+      const imgHtml   = car.car_image
+        ? `<img src="${car.car_image}" alt="${car.recommendation}"
+               onerror="this.style.display='none'" />`
+        : "";
+
+      card.innerHTML = `
+        <div class="car-img-wrapper">${imgHtml}</div>
+        <div class="car-info-area">
+          ${isTop3 ? `<div class="rank-badge">${RANK_LABELS[idx]}</div><br>` : ""}
+          <div class="brand-badge">${car.brand}</div>
+          <div class="car-label">${car.recommendation}</div>
+          <div class="info-row">
+            <div class="info-item"><span>차종</span>${car.type}</div>
+            <div class="info-item"><span>가격대</span>${car.price}</div>
+          </div>
+        </div>
+        ${car.official_url
+          ? `<a href="${car.official_url}" target="_blank" rel="noopener noreferrer"
+               class="official-btn" style="background:${btnColor}">
+               공식 사이트에서 보기 →
+             </a>`
+          : ""}
+      `;
+      grid.appendChild(card);
+    });
+
+    document.getElementById("result").style.display = "block";
+  }
+
+  function showError(msg) {
+    const el = document.getElementById("error-msg");
+    el.textContent = "⚠ " + msg;
+    el.style.display = "block";
+  }
+
+  /* ── 챗봇 ─────────────────────────────────────────── */
+  let chatContext   = null;   // {recommendation, 월소득, 가족수, 용도}
+  let chatSessionId = "";
+
+  function initChatbot(recData, inputPayload) {
+    const car   = recData.results[0].recommendation;
+    const level = recData.fallback_level || 0;
+
+    // 챗봇 컨텍스트 (폴백 정보 포함)
+    chatContext = {
+      recommendation:   car,
+      월소득:            inputPayload.월소득,
+      가족수:            inputPayload.가족수,
+      용도:              inputPayload.주용도,
+      fallback_level:   level,
+      fallback_type:    recData.fallback_type  || "none",
+      affordable_price: recData.affordable_price || null,
+    };
+
+    // 세션 초기화
+    if (chatSessionId) {
+      fetch("/chat/reset", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({session_id: chatSessionId}),
+      });
+    }
+    chatSessionId = "";
+
+    // 메시지 초기화 후 웰컴 메시지 분기
+    document.getElementById("chat-messages").innerHTML = "";
+
+    const welcomeMsg = level === 0
+      ? `안녕하세요! ${car} 추천드렸어요 😊\n궁금한 점 있으시면 편하게 물어보세요!`
+      : `안녕하세요! 입력하신 조건에 완벽히 맞는 차종은 없었지만\n${car}을(를) 가장 가까운 대안으로 추천드렸어요.\n조건을 조정하고 싶으시거나 궁금한 점 있으시면 말씀해주세요! 😊\n예를 들어 '초기자금을 높이면 어떤 차 살 수 있어요?' 같은 질문도 가능해요.`;
+
+    appendBubble("bot", welcomeMsg);
+
+    document.getElementById("chatbot-section").style.display = "block";
+    document.getElementById("chatbot-section").scrollIntoView({behavior: "smooth", block: "nearest"});
+  }
+
+  function appendBubble(role, text) {
+    const msgBox = document.getElementById("chat-messages");
+    const row    = document.createElement("div");
+    row.className = `msg-row ${role}`;
+    const bubble  = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.textContent = text;
+    row.appendChild(bubble);
+    msgBox.appendChild(row);
+    msgBox.scrollTop = msgBox.scrollHeight;
+    return bubble;
+  }
+
+  async function sendChat() {
+    if (!chatContext) return;
+    const input = document.getElementById("chat-input");
+    const msg   = input.value.trim();
+    if (!msg) return;
+
+    input.value = "";
+    appendBubble("user", msg);
+
+    // 타이핑 인디케이터
+    const typingBubble = appendBubble("bot", "답변 작성 중...");
+    typingBubble.classList.add("typing");
+
+    document.getElementById("chat-send-btn").disabled = true;
+
+    try {
+      const res  = await fetch("/chat", {
+        method:  "POST",
+        headers: {"Content-Type": "application/json"},
+        body:    JSON.stringify({
+          message:          msg,
+          session_id:       chatSessionId,
+          recommendation:   chatContext.recommendation,
+          월소득:            chatContext.월소득,
+          가족수:            chatContext.가족수,
+          용도:              chatContext.용도,
+          fallback_level:   chatContext.fallback_level,
+          fallback_type:    chatContext.fallback_type,
+          affordable_price: chatContext.affordable_price,
+        }),
+      });
+      const data = await res.json();
+
+      typingBubble.remove();
+
+      if (data.error) {
+        appendBubble("bot", "⚠ 오류가 발생했습니다: " + data.error);
+      } else {
+        chatSessionId = data.session_id;
+        appendBubble("bot", data.reply);
+      }
+    } catch (err) {
+      typingBubble.remove();
+      appendBubble("bot", "⚠ 서버 연결에 실패했습니다.");
+    } finally {
+      document.getElementById("chat-send-btn").disabled = false;
+      document.getElementById("chat-input").focus();
+    }
+  }
+
+  // 전송 버튼
+  document.getElementById("chat-send-btn").addEventListener("click", sendChat);
+
+  // Enter 키
+  document.getElementById("chat-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); }
+  });
+
+  // 대화 초기화
+  document.getElementById("chat-reset-btn").addEventListener("click", async () => {
+    if (chatSessionId) {
+      await fetch("/chat/reset", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({session_id: chatSessionId}),
+      });
+      chatSessionId = "";
+    }
+    document.getElementById("chat-messages").innerHTML = "";
+    appendBubble("bot", "대화가 초기화됐어요. 다시 질문해주세요! 😊");
+  });
+
+</script>
+</body>
+</html>

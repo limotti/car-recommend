@@ -157,6 +157,61 @@ CAR_URLS = {
     "GV80_가솔린":           "https://www.genesis.com/kr/ko/models/suv/gv80/highlights.html",
 }
 
+# ── 차종별 연비 (가솔린·하이브리드·디젤: km/L, 전기: km/kWh) ─
+CAR_FUEL_EFFICIENCY = {
+    "아반떼_가솔린":          14.0,
+    "아반떼_하이브리드":      22.5,
+    "쏘나타_가솔린":          13.0,
+    "쏘나타_하이브리드":      20.0,
+    "그랜저_가솔린":          11.0,
+    "그랜저_하이브리드":      17.0,
+    "코나_가솔린":            14.0,
+    "코나_전기":               6.3,
+    "산타페_가솔린":          10.5,
+    "산타페_하이브리드":      14.5,
+    "팰리세이드_가솔린":       9.5,
+    "팰리세이드_하이브리드":  13.0,
+    "아이오닉6_전기":          6.3,
+    "K5_가솔린":              13.5,
+    "K5_하이브리드":          21.0,
+    "K8_가솔린":              11.5,
+    "K8_하이브리드":          17.5,
+    "셀토스_가솔린":          14.5,
+    "스포티지_가솔린":        13.0,
+    "스포티지_하이브리드":    15.5,
+    "스포티지_디젤":          15.0,
+    "EV6_전기":                5.5,
+    "G80_가솔린":             10.0,
+    "G80_전기":                4.8,
+    "GV80_가솔린":             9.5,
+}
+
+# ── 차종별 월 보험료 (만원, 30대 평균) ──────────────────────
+CAR_INSURANCE = {
+    "아반떼_가솔린":           6.0,  "아반떼_하이브리드":       6.0,
+    "쏘나타_가솔린":           7.0,  "쏘나타_하이브리드":       7.0,
+    "그랜저_가솔린":           9.0,  "그랜저_하이브리드":       9.0,
+    "코나_가솔린":             7.0,  "코나_전기":               8.0,
+    "산타페_가솔린":           8.0,  "산타페_하이브리드":       8.0,
+    "팰리세이드_가솔린":      10.0,  "팰리세이드_하이브리드":  10.0,
+    "아이오닉6_전기":          8.0,
+    "K5_가솔린":               7.0,  "K5_하이브리드":           7.0,
+    "K8_가솔린":               9.0,  "K8_하이브리드":           9.0,
+    "셀토스_가솔린":           7.0,
+    "스포티지_가솔린":         8.0,  "스포티지_하이브리드":     8.0,  "스포티지_디젤":  8.0,
+    "EV6_전기":                8.0,
+    "G80_가솔린":             12.0,  "G80_전기":               12.0,
+    "GV80_가솔린":            12.0,
+}
+
+# ── 차종 패밀리별 승차 정원 ──────────────────────────────────
+CAR_SEATING = {
+    "아반떼": 5, "쏘나타": 5, "그랜저": 5, "코나": 5,
+    "산타페": 7, "팰리세이드": 7, "아이오닉6": 5,
+    "K5": 5, "K8": 5, "셀토스": 5, "스포티지": 5,
+    "EV6": 5, "G80": 5, "GV80": 7,
+}
+
 # ── og:image 크롤링 + 캐싱 ──────────────────────────────
 _HEADERS = {
     "User-Agent": (
@@ -318,80 +373,103 @@ _COMMUTE_FAM  = {"아반떼", "쏘나타", "K5", "셀토스", "아이오닉6", "
 _PREMIUM_FAM  = {"그랜저", "K8", "G80", "GV80"}
 
 
-# ── 추천 이유 생성 (규칙 기반) ────────────────────────
+# ── 월 유지비 계산 ────────────────────────────────────
+def get_monthly_maintenance(label: str) -> float:
+    """
+    월 유지비 = 연료비 + 보험료 + 소모품  (만원, 소수점 1자리)
+    연료비 기준: 월 1,000km
+      가솔린·하이브리드·디젤: 1000 ÷ 연비(km/L) × 1,700원 ÷ 10,000
+      전기:                   1000 ÷ 연비(km/kWh) × 200원 ÷ 10,000
+    """
+    fuel         = label.split("_")[-1]
+    efficiency   = CAR_FUEL_EFFICIENCY.get(label, 12.0)
+    insurance    = CAR_INSURANCE.get(label, 8.0)
+
+    if fuel == "전기":
+        fuel_cost    = 1000 / efficiency * 200  / 10000
+        consumables  = 1.0
+    elif fuel == "하이브리드":
+        fuel_cost    = 1000 / efficiency * 1700 / 10000
+        consumables  = 2.5
+    else:                                          # 가솔린 / 디젤
+        fuel_cost    = 1000 / efficiency * 1700 / 10000
+        consumables  = 3.0
+
+    return round(fuel_cost + insurance + consumables, 1)
+
+
+# ── 추천 이유 생성 (동적·케이스별) ────────────────────
 def generate_reasons(inp: dict, label: str) -> list:
-    """입력 조건 + 추천 차종을 기반으로 추천 이유 TOP3 반환"""
+    """
+    입력 조건 + 추천 차종 기반으로 추천 이유 TOP3 반환
+    우선순위: 예산(1) → 연료선호(2) → 유지비(3) → 가족수(4) → 전기+도심(5) → 초보(6)
+    """
     budget    = inp["초기자금"]
     income    = inp["월소득"]
     family_n  = inp["가족수"]
-    purpose   = inp["주용도"]
     fuel_pref = inp["연료선호"]
     region    = inp["거주지역"]
     career    = inp["운전경력"]
 
-    fam_name = FAMILY_MAP.get(label, "")
-    fuel     = label.split("_")[-1]          # 가솔린 / 하이브리드 / 전기 / 디젤
-    min_bud  = CAR_MIN_BUDGET.get(label, 999)
-    affordable = round((income * 0.3 * 72 + budget) / 100) * 100
+    fam_name         = FAMILY_MAP.get(label, "")
+    fuel             = label.split("_")[-1]
+    min_bud          = CAR_MIN_BUDGET.get(label, 999)
+    actual_min_price = round(min_bud / 0.3)        # 차량 최저가(만원) ≈ CAR_MIN_BUDGET / 0.3
+    seating          = CAR_SEATING.get(fam_name, 5)
+    monthly_maint    = get_monthly_maintenance(label)
 
-    cands = []
+    cands = []   # (priority, reason_text)
 
-    # 1) 연료 선호 일치
+    # ── 우선순위 1: 예산 ──────────────────────────────
+    if budget >= actual_min_price:
+        # 케이스 1: 초기자금으로 바로 구매 가능
+        cands.append((1, f"초기 보유 자금 {budget:,}만원으로 구매 가능한 차종입니다"))
+    else:
+        remaining   = actual_min_price - budget
+        installment = round(remaining / 72, 1)
+        if fam_name in _PREMIUM_FAM:
+            # 케이스 4: 프리미엄 차종
+            cands.append((1, (
+                f"초기자금 {budget:,}만원 + 월 {installment}만원 할부로 "
+                f"월소득 {income:,}만원 기준 감당 가능한 프리미엄 차종입니다"
+            )))
+        else:
+            # 케이스 2: 할부 필요
+            cands.append((1, (
+                f"월소득 {income:,}만원 기준 월 {installment}만원 할부로 "
+                f"72개월 구매 가능한 차종입니다"
+            )))
+
+    # ── 우선순위 2: 연료 선호 일치 ───────────────────
     if fuel_pref != "상관없음" and fuel_pref == fuel:
-        cands.append(f"연료 타입 선호({fuel_pref})와 일치")
+        cands.append((2, f"선호하신 {fuel} 차종입니다"))
 
-    # 2) 예산 적합도
-    ratio = budget / max(min_bud, 1)
-    if ratio >= 1.0:
-        cands.append(f"초기 보유 자금({budget:,}만원)으로 바로 구매 가능")
-    elif ratio >= 0.7:
-        cands.append(f"예산 기준 구매 가능 가격대({affordable:,}만원)에 가장 근접")
-
-    # 3) 월 부담률
-    monthly_payment = min_bud / 72
-    monthly_ratio   = monthly_payment / max(income, 1)
+    # ── 우선순위 3: 월 유지비 비율 ───────────────────
     if income > 0:
-        if monthly_ratio <= 0.30:
-            cands.append(f"월소득 대비 유지비 부담 낮음 (월 약 {int(monthly_payment):,}만원)")
-        elif monthly_ratio <= 0.40:
-            cands.append(f"월소득 대비 적정 수준의 할부 부담 (월 약 {int(monthly_payment):,}만원)")
+        ratio_pct = round(monthly_maint / income * 100, 1)
+        cands.append((3, (
+            f"월 유지비 {monthly_maint}만원으로 월소득의 {ratio_pct}% 수준입니다"
+        )))
 
-    # 4) 가족 수 + 차종 유형
-    if family_n >= 4 and fam_name in _SUV_FAM:
-        cands.append(f"가족 {family_n}명에게 적합한 넉넉한 SUV 공간")
-    elif family_n >= 4 and fam_name in _PREMIUM_FAM:
-        cands.append(f"가족 {family_n}명이 편안하게 탑승 가능한 대형차")
-    elif family_n <= 2 and fam_name not in _SUV_FAM and fam_name not in _PREMIUM_FAM:
-        cands.append("1~2인 가구에 효율적인 컴팩트 차급")
+    # ── 우선순위 4: 가족 수 기준 (3명 이상일 때) ─────
+    if family_n >= 3:
+        cands.append((4, f"가족 {family_n}명 기준 {seating}인승으로 적합합니다"))
 
-    # 5) 용도 매칭
-    if purpose == "출퇴근" and fam_name in _COMMUTE_FAM:
-        cands.append("출퇴근 용도에 적합한 연비 효율")
-    elif purpose == "가족용" and fam_name in _SUV_FAM:
-        cands.append("가족 나들이에 어울리는 넉넉한 실내 공간")
-    elif purpose == "레저" and fam_name in _SUV_FAM:
-        cands.append("레저·아웃도어에 최적화된 SUV 주행력")
-    elif purpose == "업무" and fam_name in _PREMIUM_FAM:
-        cands.append("비즈니스 상황에 어울리는 프리미엄 이미지")
-
-    # 6) 전기차 지역 적합도
+    # ── 우선순위 5: 전기차 + 도심 ────────────────────
     if fuel == "전기" and region == "도심":
-        cands.append("도심 충전 인프라 활용 가능한 전기차")
+        cands.append((5, "도심 거주 기준 전기차 충전 인프라 활용에 유리합니다"))
 
-    # 7) 초보 운전자 + 소형
+    # ── 우선순위 6: 초보 운전자 + 소형 ──────────────
     if career == "1년미만" and fam_name in {"아반떼", "코나", "셀토스"}:
-        cands.append("초보 운전자가 다루기 쉬운 컴팩트 사이즈")
+        cands.append((6, "초보 운전자에게 적합한 크기의 차종입니다"))
 
-    # 8) 하이브리드 + 출퇴근
-    if fuel == "하이브리드" and purpose == "출퇴근":
-        cands.append("출퇴근 주행에서 연비 절감 효과가 탁월한 하이브리드")
-
-    # 중복 제거 후 TOP3 반환
+    # priority 순 정렬 → 중복 제거 → TOP3
+    cands.sort(key=lambda x: x[0])
     seen, result = set(), []
-    for r in cands:
-        if r not in seen:
-            seen.add(r)
-            result.append(r)
+    for _, reason in cands:
+        if reason not in seen:
+            seen.add(reason)
+            result.append(reason)
         if len(result) == 3:
             break
 

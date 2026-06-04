@@ -214,6 +214,28 @@
     }
     .official-btn:hover { opacity: 0.85; }
 
+    /* 추천 이유 박스 */
+    .reasons-box {
+      margin-top: 12px;
+      background: rgba(255,255,255,0.12);
+      border-radius: 8px;
+      padding: 10px 12px;
+      text-align: left;
+    }
+    .reasons-box .reasons-title {
+      font-size: 0.74rem;
+      font-weight: 700;
+      opacity: 0.85;
+      margin-bottom: 6px;
+      text-align: center;
+      letter-spacing: 0.3px;
+    }
+    .reasons-box .reason-item {
+      font-size: 0.78rem;
+      line-height: 1.65;
+      opacity: 0.92;
+    }
+
     #error-msg {
       display: none;
       margin-top: 16px;
@@ -504,6 +526,13 @@
                onerror="this.style.display='none'" />`
         : "";
 
+      const reasonsHtml = (car.reasons && car.reasons.length)
+        ? `<div class="reasons-box">
+             <div class="reasons-title">이 차를 추천한 이유</div>
+             ${car.reasons.map((r, i) => `<div class="reason-item">${['①','②','③'][i]} ${r}</div>`).join('')}
+           </div>`
+        : "";
+
       card.innerHTML = `
         <div class="car-img-wrapper">${imgHtml}</div>
         <div class="car-info-area">
@@ -514,6 +543,7 @@
             <div class="info-item"><span>차종</span>${car.type}</div>
             <div class="info-item"><span>가격대</span>${car.price}</div>
           </div>
+          ${reasonsHtml}
         </div>
         ${car.official_url
           ? `<a href="${car.official_url}" target="_blank" rel="noopener noreferrer"

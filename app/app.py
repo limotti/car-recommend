@@ -318,6 +318,89 @@ _COMMUTE_FAM  = {"아반떼", "쏘나타", "K5", "셀토스", "아이오닉6", "
 _PREMIUM_FAM  = {"그랜저", "K8", "G80", "GV80"}
 
 
+# ── 추천 이유 생성 (규칙 기반) ────────────────────────
+def generate_reasons(inp: dict, label: str) -> list:
+    """입력 조건 + 추천 차종을 기반으로 추천 이유 TOP3 반환"""
+    budget    = inp["초기자금"]
+    income    = inp["월소득"]
+    family_n  = inp["가족수"]
+    purpose   = inp["주용도"]
+    fuel_pref = inp["연료선호"]
+    region    = inp["거주지역"]
+    career    = inp["운전경력"]
+
+    fam_name = FAMILY_MAP.get(label, "")
+    fuel     = label.split("_")[-1]          # 가솔린 / 하이브리드 / 전기 / 디젤
+    min_bud  = CAR_MIN_BUDGET.get(label, 999)
+    affordable = round((income * 0.3 * 72 + budget) / 100) * 100
+
+    cands = []
+
+    # 1) 연료 선호 일치
+    if fuel_pref != "상관없음" and fuel_pref == fuel:
+        cands.append(f"연료 타입 선호({fuel_pref})와 일치")
+
+    # 2) 예산 적합도
+    ratio = budget / max(min_bud, 1)
+    if ratio >= 1.0:
+        cands.append(f"초기 보유 자금({budget:,}만원)으로 바로 구매 가능")
+    elif ratio >= 0.7:
+        cands.append(f"예산 기준 구매 가능 가격대({affordable:,}만원)에 가장 근접")
+
+    # 3) 월 부담률
+    monthly_payment = min_bud / 72
+    monthly_ratio   = monthly_payment / max(income, 1)
+    if income > 0:
+        if monthly_ratio <= 0.30:
+            cands.append(f"월소득 대비 유지비 부담 낮음 (월 약 {int(monthly_payment):,}만원)")
+        elif monthly_ratio <= 0.40:
+            cands.append(f"월소득 대비 적정 수준의 할부 부담 (월 약 {int(monthly_payment):,}만원)")
+
+    # 4) 가족 수 + 차종 유형
+    if family_n >= 4 and fam_name in _SUV_FAM:
+        cands.append(f"가족 {family_n}명에게 적합한 넉넉한 SUV 공간")
+    elif family_n >= 4 and fam_name in _PREMIUM_FAM:
+        cands.append(f"가족 {family_n}명이 편안하게 탑승 가능한 대형차")
+    elif family_n <= 2 and fam_name not in _SUV_FAM and fam_name not in _PREMIUM_FAM:
+        cands.append("1~2인 가구에 효율적인 컴팩트 차급")
+
+    # 5) 용도 매칭
+    if purpose == "출퇴근" and fam_name in _COMMUTE_FAM:
+        cands.append("출퇴근 용도에 적합한 연비 효율")
+    elif purpose == "가족용" and fam_name in _SUV_FAM:
+        cands.append("가족 나들이에 어울리는 넉넉한 실내 공간")
+    elif purpose == "레저" and fam_name in _SUV_FAM:
+        cands.append("레저·아웃도어에 최적화된 SUV 주행력")
+    elif purpose == "업무" and fam_name in _PREMIUM_FAM:
+        cands.append("비즈니스 상황에 어울리는 프리미엄 이미지")
+
+    # 6) 전기차 지역 적합도
+    if fuel == "전기" and region == "도심":
+        cands.append("도심 충전 인프라 활용 가능한 전기차")
+
+    # 7) 초보 운전자 + 소형
+    if career == "1년미만" and fam_name in {"아반떼", "코나", "셀토스"}:
+        cands.append("초보 운전자가 다루기 쉬운 컴팩트 사이즈")
+
+    # 8) 하이브리드 + 출퇴근
+    if fuel == "하이브리드" and purpose == "출퇴근":
+        cands.append("출퇴근 주행에서 연비 절감 효과가 탁월한 하이브리드")
+
+    # 중복 제거 후 TOP3 반환
+    seen, result = set(), []
+    for r in cands:
+        if r not in seen:
+            seen.add(r)
+            result.append(r)
+        if len(result) == 3:
+            break
+
+    if not result:
+        result.append(f"현재 조건과 가장 가까운 {fam_name} 추천")
+
+    return result[:3]
+
+
 # ── 모델 로드 (앱 시작 시 1회) ────────────────────────
 def load_models():
     with open(MODEL_DIR / "stage1_model.pkl", "rb") as f:
@@ -516,6 +599,37 @@ def predict():
             "거주지역": str(data["거주지역"]),
         }
 
+        # ── 0 입력 처리: 최소 조건 추천 ──────────────────
+        if inp["월소득"] == 0 or inp["초기자금"] == 0:
+            cheapest = min(CAR_MIN_BUDGET, key=CAR_MIN_BUDGET.get)  # 셀토스_가솔린
+            info = CAR_INFO.get(cheapest, {})
+            return jsonify({
+                "results": [{
+                    "recommendation": cheapest,
+                    "brand":        info.get("brand", ""),
+                    "type":         info.get("type",  ""),
+                    "price":        info.get("price", ""),
+                    "car_image":    car_images.get(cheapest),
+                    "official_url": CAR_URLS.get(cheapest, ""),
+                    "reasons":      [
+                        "현재 조건 기준 구매 가능한 최저가 차종",
+                        "첫 차로 적합한 소형 SUV",
+                        "유지비 부담이 가장 적은 모델",
+                    ],
+                }],
+                "fallback_level":   3,
+                "fallback_type":    "zero_input",
+                "fallback_message": (
+                    "최소 조건으로 추천 가능한 차종을 안내합니다.\n"
+                    "소득 또는 초기 자금이 입력되지 않아 구매 가능한 최저가 차종을 기준으로 추천드려요."
+                ),
+                "affordable_price": None,
+                "recommendation":   cheapest,
+                "brand":            info.get("brand", ""),
+                "type":             info.get("type",  ""),
+                "price":            info.get("price", ""),
+            })
+
         labels, level = predict_with_fallback(inp)
         fb            = get_fallback_info(inp, level)
 
@@ -529,6 +643,7 @@ def predict():
                 "price":        info.get("price", ""),
                 "car_image":    car_images.get(lbl),          # og:image (None이면 fallback)
                 "official_url": CAR_URLS.get(lbl, ""),
+                "reasons":      generate_reasons(inp, lbl),  # 추천 이유 TOP3
             })
 
         return jsonify({

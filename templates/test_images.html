@@ -282,7 +282,7 @@
       {% if car.img_url %}
       <img
         src="{{ car.img_url }}"
-        alt="{{ car.label }}"
+        alt="{{ car.label | replace('_', ' ') }}"
         onload="onImgLoad({{ loop.index }})"
         onerror="onImgError({{ loop.index }})" />
       {% else %}
@@ -293,7 +293,7 @@
 
     <!-- 정보 -->
     <div class="car-info">
-      <div class="car-name">{{ car.label }}</div>
+      <div class="car-name">{{ car.label | replace('_', ' ') }}</div>
       <div class="car-brand-type">{{ car.brand }} · {{ car.type }}</div>
       <div class="status-badge pending" id="status-{{ loop.index }}">
         {% if not car.img_url %}❌ URL 없음{% else %}⏳ 확인 중{% endif %}

@@ -456,6 +456,9 @@
 </div>
 
 <script>
+  // 차종명 언더바 → 띄어쓰기 변환 (예: 쏘나타_하이브리드 → 쏘나타 하이브리드)
+  const fmtCar = n => n.replace(/_/g, ' ');
+
   const form = document.getElementById("recommend-form");
   const btn  = document.getElementById("submit-btn");
 
@@ -553,7 +556,7 @@
         ? `data-fallback="${car.car_image_fallback}"`
         : "";
       const imgHtml = car.car_image
-        ? `<img src="${car.car_image}" alt="${car.recommendation}"
+        ? `<img src="${car.car_image}" alt="${fmtCar(car.recommendation)}"
                ${fallbackAttr}
                onerror="onImgError(this)" />`
         : "";
@@ -570,7 +573,7 @@
         <div class="car-info-area">
           ${isTop3 ? `<div class="rank-badge">${RANK_LABELS[idx]}</div><br>` : ""}
           <div class="brand-badge">${car.brand}</div>
-          <div class="car-label">${car.recommendation}</div>
+          <div class="car-label">${fmtCar(car.recommendation)}</div>
           <div class="info-row">
             <div class="info-item"><span>차종</span>${car.type}</div>
             <div class="info-item"><span>가격대</span>${car.price}</div>
@@ -629,8 +632,8 @@
     document.getElementById("chat-messages").innerHTML = "";
 
     const welcomeMsg = level === 0
-      ? `안녕하세요! ${car} 추천드렸어요 😊\n궁금한 점 있으시면 편하게 물어보세요!`
-      : `안녕하세요! 입력하신 조건에 완벽히 맞는 차종은 없었지만\n${car}을(를) 가장 가까운 대안으로 추천드렸어요.\n조건을 조정하고 싶으시거나 궁금한 점 있으시면 말씀해주세요! 😊\n예를 들어 '초기자금을 높이면 어떤 차 살 수 있어요?' 같은 질문도 가능해요.`;
+      ? `안녕하세요! ${fmtCar(car)} 추천드렸어요 😊\n궁금한 점 있으시면 편하게 물어보세요!`
+      : `안녕하세요! 입력하신 조건에 완벽히 맞는 차종은 없었지만\n${fmtCar(car)}을(를) 가장 가까운 대안으로 추천드렸어요.\n조건을 조정하고 싶으시거나 궁금한 점 있으시면 말씀해주세요! 😊\n예를 들어 '초기자금을 높이면 어떤 차 살 수 있어요?' 같은 질문도 가능해요.`;
 
     appendBubble("bot", welcomeMsg);
 

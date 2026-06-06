@@ -534,7 +534,10 @@
     data.results.forEach((car, idx) => {
       const card      = document.createElement("div");
       card.className  = "car-card";
-      const btnColor  = BRAND_COLORS[car.brand] || "#1a2b4a";
+      const btnColor    = BRAND_COLORS[car.brand] || "#1a2b4a";
+      const wrapperBg   = car.brand === "제네시스"
+        ? "linear-gradient(135deg, #B49A6A 0%, #8B7355 100%)"
+        : "linear-gradient(135deg, #1a2b4a 0%, #2563eb 100%)";
       const imgHtml   = car.car_image
         ? `<img src="${car.car_image}" alt="${car.recommendation}"
                onerror="this.style.display='none'" />`
@@ -548,7 +551,7 @@
         : "";
 
       card.innerHTML = `
-        <div class="car-img-wrapper">${imgHtml}</div>
+        <div class="car-img-wrapper" style="background:${wrapperBg}">${imgHtml}</div>
         <div class="car-info-area">
           ${isTop3 ? `<div class="rank-badge">${RANK_LABELS[idx]}</div><br>` : ""}
           <div class="brand-badge">${car.brand}</div>

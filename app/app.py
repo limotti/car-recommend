@@ -152,9 +152,9 @@ CAR_URLS = {
     "스포티지_하이브리드":   "https://www.kia.com/kr/vehicles/sportage/features.html",
     "스포티지_디젤":         "https://www.kia.com/kr/vehicles/sportage/features.html",
     "EV6_전기":              "https://www.kia.com/kr/vehicles/ev6/features.html",
-    "G80_가솔린":            "https://www.genesis.com/kr/ko/models/sedan/g80/highlights.html",
+    "G80_가솔린":            "https://www.genesis.com/kr/ko/models/luxury-sedan-genesis/g80/highlights.html",
     "G80_전기":              "https://www.genesis.com/kr/ko/models/luxury-sedan-genesis/electrified-g80/highlights.html",
-    "GV80_가솔린":           "https://www.genesis.com/kr/ko/models/suv/gv80/highlights.html",
+    "GV80_가솔린":           "https://www.genesis.com/kr/ko/models/luxury-suv-genesis/gv80/highlights.html",
 }
 
 # ── 차종별 연비 (가솔린·하이브리드·디젤: km/L, 전기: km/kWh) ─
@@ -212,6 +212,18 @@ CAR_SEATING = {
     "EV6": 5, "G80": 5, "GV80": 7,
 }
 
+# ── og:image 대신 직접 시도할 이미지 URL 우선순위 ─────────
+CAR_IMAGE_PRIORITY = {
+    "G80_가솔린": [
+        "https://www.genesis.com/content/dam/genesis/kr/ko/models/g80/2025/highlights/genesis-g80-2025-highlights-kv.jpg",
+        "https://www.genesis.com/content/dam/genesis/kr/ko/models/g80/highlights/genesis-g80-highlights-kv.jpg",
+    ],
+    "GV80_가솔린": [
+        "https://www.genesis.com/content/dam/genesis/kr/ko/models/gv80/2025/highlights/genesis-gv80-2025-highlights-kv.jpg",
+        "https://www.genesis.com/content/dam/genesis/kr/ko/models/gv80/highlights/genesis-gv80-highlights-kv.jpg",
+    ],
+}
+
 # ── og:image 크롤링 + 캐싱 ──────────────────────────────
 _HEADERS = {
     "User-Agent": (
@@ -243,22 +255,48 @@ def _fetch_og_image(url: str) -> str | None:
     return None
 
 
+def _fetch_image_direct(urls: list) -> str | None:
+    """우선순위 이미지 URL을 순서대로 시도, 200 응답 첫 URL 반환"""
+    for url in urls:
+        try:
+            resp = requests.get(url, headers=_HEADERS, timeout=8)
+            ct   = resp.headers.get("Content-Type", "")
+            if resp.status_code == 200 and (
+                "image" in ct or url.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))
+            ):
+                return url
+        except Exception:
+            continue
+    return None
+
+
 def load_car_images():
-    """앱 시작 시 1회 — 고유 URL 병렬 크롤링 후 캐싱"""
+    """앱 시작 시 1회 — og:image 병렬 크롤링 + 우선순위 직접 URL 병행"""
     global car_images
+    priority_labels = set(CAR_IMAGE_PRIORITY.keys())
+
+    # 우선순위 제외한 레이블 → og:image 크롤링 (고유 URL 중복 제거)
     unique_urls: dict[str, list[str]] = {}
     for label, url in CAR_URLS.items():
-        unique_urls.setdefault(url, []).append(label)
+        if label not in priority_labels:
+            unique_urls.setdefault(url, []).append(label)
 
     url_to_img: dict[str, str | None] = {}
     with ThreadPoolExecutor(max_workers=8) as ex:
-        futures = {ex.submit(_fetch_og_image, url): url for url in unique_urls}
-        for fut in as_completed(futures):
-            url = futures[fut]
-            url_to_img[url] = fut.result()
+        og_futs   = {ex.submit(_fetch_og_image,    url):  url
+                     for url in unique_urls}
+        prio_futs = {ex.submit(_fetch_image_direct, urls): lbl
+                     for lbl, urls in CAR_IMAGE_PRIORITY.items()}
+
+        for fut in as_completed({**og_futs, **prio_futs}):
+            if fut in og_futs:
+                url_to_img[og_futs[fut]] = fut.result()
+            else:
+                car_images[prio_futs[fut]] = fut.result()
 
     for label, url in CAR_URLS.items():
-        car_images[label] = url_to_img.get(url)
+        if label not in priority_labels:
+            car_images[label] = url_to_img.get(url)
 
     ok = sum(1 for v in car_images.values() if v)
     print(f"[images] {ok}/{len(car_images)}개 og:image 로드 완료")

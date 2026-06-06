@@ -701,6 +701,33 @@ def explain():
     return render_template("explain.html")
 
 
+@app.route("/test-images")
+def test_images():
+    """개발/테스트용 — 25개 차종 이미지 로딩 상태 확인 페이지"""
+    brand_order = {"현대": 0, "기아": 1, "제네시스": 2}
+    cars = []
+    for label in CAR_URLS:
+        info = CAR_INFO.get(label, {})
+        cars.append({
+            "label":        label,
+            "brand":        info.get("brand", ""),
+            "type":         info.get("type", ""),
+            "img_url":      car_images.get(label),
+            "official_url": CAR_URLS.get(label, ""),
+        })
+    cars.sort(key=lambda c: (brand_order.get(c["brand"], 9), c["label"]))
+    no_url_count  = sum(1 for c in cars if not c["img_url"])
+    has_url_count = len(cars) - no_url_count
+    return render_template(
+        "test_images.html",
+        cars=cars,
+        no_url_count=no_url_count,
+        has_url_count=has_url_count,
+        images_loaded=len(car_images),
+        total=len(cars),
+    )
+
+
 @app.route("/predict", methods=["POST"])
 def predict():
     try:

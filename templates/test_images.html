@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>[DEV] 이미지 로딩 테스트</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 24px 20px 48px;
+    }
+
+    /* ── 헤더 ─────────────────────────────────────── */
+    .page-header {
+      max-width: 1300px;
+      margin: 0 auto 24px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .header-left { display: flex; flex-direction: column; gap: 4px; }
+
+    .dev-badge {
+      display: inline-block;
+      background: #f59e0b;
+      color: #1a1a1a;
+      font-size: 0.7rem;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 4px;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+    h1 { font-size: 1.5rem; font-weight: 800; color: #f1f5f9; }
+    .subtitle { font-size: 0.85rem; color: #64748b; margin-top: 2px; }
+
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.8rem;
+      color: #64748b;
+      text-decoration: none;
+      margin-bottom: 8px;
+    }
+    .back-btn:hover { color: #94a3b8; }
+
+    /* ── 요약 바 ──────────────────────────────────── */
+    .summary-bar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .summary-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #1e293b;
+      border-radius: 10px;
+      padding: 10px 18px;
+      font-size: 0.9rem;
+    }
+    .summary-item strong { font-size: 1.3rem; font-weight: 800; }
+    .summary-item.success strong { color: #4ade80; }
+    .summary-item.fail    strong { color: #f87171; }
+    .summary-item.pending strong { color: #fbbf24; }
+
+    .warn-banner {
+      max-width: 1300px;
+      margin: 0 auto 20px;
+      background: #451a03;
+      border: 1px solid #f59e0b;
+      border-radius: 10px;
+      padding: 12px 18px;
+      font-size: 0.88rem;
+      color: #fcd34d;
+    }
+
+    /* ── 구분선 (브랜드별) ─────────────────────────── */
+    .brand-section { max-width: 1300px; margin: 0 auto 8px; }
+    .brand-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: #475569;
+      text-transform: uppercase;
+      padding: 12px 2px 6px;
+      border-bottom: 1px solid #1e293b;
+      margin-bottom: 14px;
+    }
+
+    /* ── 그리드 ──────────────────────────────────── */
+    .car-grid {
+      max-width: 1300px;
+      margin: 0 auto 24px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 14px;
+    }
+    @media (max-width: 1100px) { .car-grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (max-width: 800px)  { .car-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 560px)  { .car-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    /* ── 카드 ────────────────────────────────────── */
+    .car-card {
+      background: #1e293b;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 2px solid #334155;
+      transition: border-color 0.25s;
+      display: flex;
+      flex-direction: column;
+    }
+    .car-card.ok    { border-color: #166534; }
+    .car-card.error { border-color: #991b1b; }
+    .car-card.loading { border-color: #334155; }
+
+    /* 이미지 영역 (16:9) */
+    .img-wrapper {
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .img-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .no-img-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.4);
+      font-weight: 600;
+    }
+
+    /* 상태 오버레이 (카드 좌상단) */
+    .status-overlay {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+
+    /* 카드 하단 정보 */
+    .car-info {
+      padding: 10px 10px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+    }
+    .car-name {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      word-break: keep-all;
+    }
+    .car-brand-type {
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+    .status-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      border-radius: 4px;
+      padding: 2px 7px;
+      background: #334155;
+      color: #94a3b8;
+      width: fit-content;
+      margin-top: 2px;
+    }
+    .status-badge.success { background: #14532d; color: #4ade80; }
+    .status-badge.fail    { background: #450a0a; color: #f87171; }
+    .status-badge.pending { background: #422006; color: #fbbf24; }
+
+    .img-url-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 2px;
+    }
+    .img-url {
+      font-size: 0.65rem;
+      color: #475569;
+      word-break: break-all;
+      line-height: 1.4;
+      flex: 1;
+      cursor: default;
+    }
+    .copy-btn {
+      background: none;
+      border: none;
+      color: #475569;
+      cursor: pointer;
+      font-size: 0.75rem;
+      padding: 2px 4px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      width: auto;
+      margin-top: 0;
+    }
+    .copy-btn:hover { color: #94a3b8; background: #334155; }
+
+    .official-btn {
+      display: block;
+      text-align: center;
+      padding: 7px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #94a3b8;
+      text-decoration: none;
+      background: #0f172a;
+      border-top: 1px solid #1e293b;
+      margin-top: auto;
+      transition: color 0.15s;
+    }
+    .official-btn:hover { color: #e2e8f0; }
+
+    /* 새로고침 버튼 */
+    .refresh-btn {
+      background: #1e40af;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      width: auto;
+      margin-top: 0;
+    }
+    .refresh-btn:hover { background: #1d4ed8; opacity: 1; }
+  </style>
+</head>
+<body>
+
+<!-- 헤더 -->
+<div class="page-header">
+  <div class="header-left">
+    <a href="/" class="back-btn">← 메인으로</a>
+    <span class="dev-badge">DEV ONLY</span>
+    <h1>🖼️ 차량 이미지 로딩 테스트</h1>
+    <p class="subtitle">{{ total }}개 차종 · 서버 로딩 완료 {{ images_loaded }}개 · /test-images</p>
+  </div>
+  <div class="summary-bar">
+    <div class="summary-item success">✅ 성공 <strong id="success-count">0</strong>개</div>
+    <div class="summary-item fail">❌ 실패 <strong id="fail-count">{{ no_url_count }}</strong>개</div>
+    <div class="summary-item pending">⏳ 확인 중 <strong id="pending-count">{{ has_url_count }}</strong>개</div>
+    <button class="refresh-btn" onclick="location.reload()">🔄 새로고침</button>
+  </div>
+</div>
+
+{% if images_loaded < 20 %}
+<div class="warn-banner" style="max-width:1300px; margin: 0 auto 20px;">
+  ⚠️ 서버 이미지 로딩이 아직 진행 중입니다 ({{ images_loaded }}/{{ total }}). 잠시 후 새로고침해 주세요.
+</div>
+{% endif %}
+
+<!-- 브랜드별 섹션 -->
+{% set ns = namespace(prev_brand='') %}
+<div class="car-grid" id="car-grid">
+{% for car in cars %}
+  <div class="car-card loading" id="item-{{ loop.index }}">
+    <!-- 이미지 영역 -->
+    <div class="img-wrapper" style="background: {{ 'linear-gradient(135deg,#B49A6A,#8B7355)' if car.brand == '제네시스' else 'linear-gradient(135deg,#1a2b4a,#2563eb)' }}">
+      {% if car.img_url %}
+      <img
+        src="{{ car.img_url }}"
+        alt="{{ car.label }}"
+        onload="onImgLoad({{ loop.index }})"
+        onerror="onImgError({{ loop.index }})" />
+      {% else %}
+      <div class="no-img-placeholder">URL 없음</div>
+      {% endif %}
+      <div class="status-overlay" id="overlay-{{ loop.index }}">⏳</div>
+    </div>
+
+    <!-- 정보 -->
+    <div class="car-info">
+      <div class="car-name">{{ car.label }}</div>
+      <div class="car-brand-type">{{ car.brand }} · {{ car.type }}</div>
+      <div class="status-badge pending" id="status-{{ loop.index }}">
+        {% if not car.img_url %}❌ URL 없음{% else %}⏳ 확인 중{% endif %}
+      </div>
+      <div class="img-url-row">
+        <div class="img-url"
+             title="{{ car.img_url or '없음' }}"
+             id="urltext-{{ loop.index }}">
+          {{ car.img_url.split('/')[-1] if car.img_url else '(URL 없음)' }}
+        </div>
+        {% if car.img_url %}
+        <button class="copy-btn" onclick="copyUrl('{{ car.img_url }}', this)" title="URL 복사">📋</button>
+        {% endif %}
+      </div>
+    </div>
+
+    <a href="{{ car.official_url }}" target="_blank" rel="noopener"
+       class="official-btn">공식 사이트 →</a>
+  </div>
+{% endfor %}
+</div>
+
+<script>
+  let successCount = 0;
+  let failCount    = {{ no_url_count }};
+  let pendingCount = {{ has_url_count }};
+
+  // URL이 없는 항목 즉시 실패 처리
+  {% for car in cars %}{% if not car.img_url %}
+  setStatus({{ loop.index }}, 'fail', '❌ URL 없음');
+  {% endif %}{% endfor %}
+
+  updateSummary();
+
+  function onImgLoad(idx) {
+    setStatus(idx, 'success', '✅ 로딩 성공');
+    successCount++;
+    pendingCount--;
+    updateSummary();
+  }
+
+  function onImgError(idx) {
+    setStatus(idx, 'fail', '❌ 로딩 실패');
+    failCount++;
+    pendingCount--;
+    updateSummary();
+  }
+
+  function setStatus(idx, cls, text) {
+    const card    = document.getElementById('item-'    + idx);
+    const badge   = document.getElementById('status-'  + idx);
+    const overlay = document.getElementById('overlay-' + idx);
+
+    badge.textContent = text;
+    badge.className   = 'status-badge ' + cls;
+    card.classList.remove('loading', 'ok', 'error');
+    card.classList.add(cls === 'success' ? 'ok' : 'error');
+    overlay.textContent = cls === 'success' ? '✅' : '❌';
+  }
+
+  function updateSummary() {
+    document.getElementById('success-count').textContent = successCount;
+    document.getElementById('fail-count').textContent    = failCount;
+    document.getElementById('pending-count').textContent = pendingCount;
+  }
+
+  function copyUrl(url, btn) {
+    navigator.clipboard.writeText(url).then(() => {
+      const orig = btn.textContent;
+      btn.textContent = '✓';
+      setTimeout(() => { btn.textContent = orig; }, 1500);
+    });
+  }
+
+  // 30초 후에도 pending이 남아 있으면 timeout 처리
+  setTimeout(() => {
+    document.querySelectorAll('.car-card.loading').forEach(card => {
+      const idx = card.id.replace('item-', '');
+      setStatus(idx, 'fail', '⏱ 타임아웃');
+      failCount++; pendingCount--;
+    });
+    updateSummary();
+  }, 30000);
+</script>
+</body>
+</html>

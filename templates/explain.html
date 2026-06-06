@@ -406,6 +406,42 @@
     </div>
   </div>
 
+  <!-- 6. 실데이터 검증 -->
+  <div class="card">
+    <h2><span class="icon">🔬</span>실데이터 검증</h2>
+    <p style="font-size:0.88rem; color:#7a8fa6; margin-bottom:20px;">
+      미국 차량 스펙/구매 데이터를 기반으로 우리 서비스 설계의 구조적 타당성을 검증했습니다.
+    </p>
+
+    <!-- 차급·연료 매핑 -->
+    <div style="margin-bottom:28px;">
+      <div style="font-size:0.95rem; font-weight:700; color:#1a2b4a; margin-bottom:10px;">
+        📊 차급별 가격 구조 &amp; 연료 타입 분포 비교
+      </div>
+      <img src="/static/mapping_car_features.png"
+           alt="차급별 가격 및 연료 타입 비교"
+           class="chart-img" />
+      <ul style="margin-top:12px; padding-left:18px; font-size:0.85rem; color:#475569; line-height:1.9;">
+        <li><strong>차급별 가격 구조</strong>가 미국 실데이터와 한국 서비스 모두 소형→중형→대형 순으로 일치 — 차급 분류 체계가 타당함을 확인</li>
+        <li>한국 서비스는 <strong>하이브리드(32%) · 전기(16%)</strong>를 미국 데이터 대비 의도적으로 확대 설계 — 국내 친환경차 정책 및 미래 수요 반영</li>
+      </ul>
+    </div>
+
+    <!-- 소득-구매 패턴 -->
+    <div>
+      <div style="font-size:0.95rem; font-weight:700; color:#1a2b4a; margin-bottom:10px;">
+        📈 소득 구간별 구매율 — 실데이터 피크와 타겟 구간 일치
+      </div>
+      <img src="/static/mapping_car_purchase.png"
+           alt="소득 구간별 구매율"
+           class="chart-img" />
+      <ul style="margin-top:12px; padding-left:18px; font-size:0.85rem; color:#475569; line-height:1.9;">
+        <li>실데이터에서 <strong>300~400만원 구간 구매율 54.3%</strong>로 최고 — 구매 의향이 가장 높은 핵심 소득층</li>
+        <li>우리 서비스 타겟 구간(200~500만원)이 실데이터 구매율 피크를 완전히 포함 → <strong>타겟 설정의 데이터 근거 확보</strong></li>
+      </ul>
+    </div>
+  </div>
+
   <p class="footer-note">실제 구매 패턴 기반 설계 데이터 학습 · 현대·기아·제네시스 · XGBoost v2</p>
 
 </div>

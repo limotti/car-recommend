@@ -417,17 +417,14 @@
 
   <div id="error-msg"></div>
 
-  <!-- 챗봇 섹션 (추천 결과 후 표시) -->
-  <div id="chatbot-section">
-    <div class="chat-header">
-      <span>🤖 AI 상담사에게 더 물어보세요</span>
-      <button id="chat-reset-btn">대화 초기화</button>
+  <div id="result">
+    <!-- 폴백 안내 배너 -->
+    <div class="fallback-banner" id="fallback-banner">
+      <span class="icon">⚠️</span>
+      <span id="fallback-msg-text"></span>
     </div>
-    <div id="chat-messages"></div>
-    <div class="chat-input-row">
-      <input type="text" id="chat-input" placeholder="궁금한 점을 입력하세요..." maxlength="200" />
-      <button id="chat-send-btn">전송</button>
-    </div>
+    <!-- 결과 카드 (단일 or TOP3 그리드) -->
+    <div class="card-grid" id="card-grid"></div>
   </div>
 
   <!-- 모델 분석 링크 -->
@@ -444,14 +441,17 @@
     </a>
   </div>
 
-  <div id="result">
-    <!-- 폴백 안내 배너 -->
-    <div class="fallback-banner" id="fallback-banner">
-      <span class="icon">⚠️</span>
-      <span id="fallback-msg-text"></span>
+  <!-- 챗봇 섹션 (추천 결과 후 표시) -->
+  <div id="chatbot-section">
+    <div class="chat-header">
+      <span>🤖 AI 상담사에게 더 물어보세요</span>
+      <button id="chat-reset-btn">대화 초기화</button>
     </div>
-    <!-- 결과 카드 (단일 or TOP3 그리드) -->
-    <div class="card-grid" id="card-grid"></div>
+    <div id="chat-messages"></div>
+    <div class="chat-input-row">
+      <input type="text" id="chat-input" placeholder="궁금한 점을 입력하세요..." maxlength="200" />
+      <button id="chat-send-btn">전송</button>
+    </div>
   </div>
 </div>
 

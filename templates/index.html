@@ -611,6 +611,7 @@
     chatContext = {
       recommendation:   car,
       월소득:            inputPayload.월소득,
+      초기자금:          inputPayload.초기자금,
       가족수:            inputPayload.가족수,
       용도:              inputPayload.주용도,
       fallback_level:   level,
@@ -678,6 +679,7 @@
           session_id:       chatSessionId,
           recommendation:   chatContext.recommendation,
           월소득:            chatContext.월소득,
+          초기자금:          chatContext.초기자금,
           가족수:            chatContext.가족수,
           용도:              chatContext.용도,
           fallback_level:   chatContext.fallback_level,

@@ -218,15 +218,16 @@ CAR_IMAGE_PRIORITY = {
     "G80_가솔린": [
         "https://www.genesis.com/content/dam/genesis-p2/kr/assets/utility/sns/genesis-kr-g80-fl-og-1200x630.jpg",
     ],
-    "GV80_가솔린": [
-        "https://www.genesis.com/content/dam/genesis-p2/kr/assets/utility/sns/genesis-kr-gv80-fl-og-1200x630.jpg",
-        "https://www.genesis.com/content/dam/genesis-p2/kr/assets/utility/sns/genesis-kr-gv80-og-1200x630.jpg",
-    ],
 }
 
 # ── 브라우저 onerror 시 사용할 2순위 fallback URL ─────────
-CAR_IMAGE_FALLBACKS: dict[str, str] = {
-    "GV80_가솔린": "https://www.genesis.com/content/dam/genesis-p2/kr/assets/utility/sns/genesis-kr-gv80-og-1200x630.jpg",
+CAR_IMAGE_FALLBACKS: dict[str, str] = {}
+
+# ── GitHub 커밋된 정적 이미지 (og:image 크롤링 불가 차종) ──
+# 로컬에서 다운로드 후 app/static/car_images/ 에 저장, Render에도 그대로 배포
+CAR_STATIC_IMAGES: dict[str, str] = {
+    "GV80_가솔린": "/static/car_images/gv80_gasoline.jpg",
+    "코나_전기":   "/static/car_images/kona_electric.jpg",
 }
 
 # ── og:image 크롤링 + 캐싱 ──────────────────────────────
@@ -277,20 +278,25 @@ def _fetch_image_direct(urls: list) -> str | None:
 
 
 def load_car_images():
-    """앱 시작 시 1회 — og:image 병렬 크롤링 + 우선순위 URL 직접 저장"""
+    """앱 시작 시 1회 — 정적파일 / 직접URL / og:image 3단계 이미지 로드"""
     global car_images
-    priority_labels = set(CAR_IMAGE_PRIORITY.keys())
 
-    # ✅ 우선순위 레이블: 서버 검증 없이 첫 URL 직접 저장
-    # Genesis CDN은 서버사이드 요청(Render IP)은 차단하지만 브라우저 <img src>는 허용
-    # → 브라우저에서 직접 로딩 시도, 실패 시 CAR_IMAGE_FALLBACKS → 그래도 실패 시 gradient
+    # skip 대상: 정적 파일 + 우선순위 직접 URL 레이블
+    skip_labels = set(CAR_STATIC_IMAGES.keys()) | set(CAR_IMAGE_PRIORITY.keys())
+
+    # 1단계: 정적 파일 (GitHub 커밋 이미지 → Render에서 /static/ 으로 서빙)
+    for lbl, path in CAR_STATIC_IMAGES.items():
+        car_images[lbl] = path
+
+    # 2단계: 우선순위 직접 URL (G80_가솔린)
+    # Genesis CDN은 서버사이드 요청은 차단 → 브라우저가 직접 로딩 시도
     for lbl, urls in CAR_IMAGE_PRIORITY.items():
         car_images[lbl] = urls[0] if urls else None
 
-    # 나머지: og:image 크롤링 (고유 URL 중복 제거)
+    # 3단계: 나머지 23개 차종 → og:image 크롤링 (고유 URL 중복 제거)
     unique_urls: dict[str, list[str]] = {}
     for label, url in CAR_URLS.items():
-        if label not in priority_labels:
+        if label not in skip_labels:
             unique_urls.setdefault(url, []).append(label)
 
     url_to_img: dict[str, str | None] = {}
@@ -300,11 +306,11 @@ def load_car_images():
             url_to_img[og_futs[fut]] = fut.result()
 
     for label, url in CAR_URLS.items():
-        if label not in priority_labels:
+        if label not in skip_labels:
             car_images[label] = url_to_img.get(url)
 
     ok = sum(1 for v in car_images.values() if v)
-    print(f"[images] {ok}/{len(car_images)}개 og:image 로드 완료")
+    print(f"[images] {ok}/{len(car_images)}개 이미지 로드 완료")
 
 
 # 디버그 모드 리로더 자식 프로세스에서만 1회 실행

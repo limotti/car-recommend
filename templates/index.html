@@ -427,6 +427,19 @@
     <div class="card-grid" id="card-grid"></div>
   </div>
 
+  <!-- 챗봇 섹션 (추천 결과 후 표시) -->
+  <div id="chatbot-section">
+    <div class="chat-header">
+      <span>🤖 AI 상담사에게 더 물어보세요</span>
+      <button id="chat-reset-btn">대화 초기화</button>
+    </div>
+    <div id="chat-messages"></div>
+    <div class="chat-input-row">
+      <input type="text" id="chat-input" placeholder="궁금한 점을 입력하세요..." maxlength="200" />
+      <button id="chat-send-btn">전송</button>
+    </div>
+  </div>
+
   <!-- 모델 분석 링크 -->
   <div style="text-align:center; margin-top: 16px;">
     <a href="/explain" style="
@@ -439,19 +452,6 @@
        onmouseout="this.style.color='#94a3b8';this.style.borderColor='#e2e8f0'">
       🔍 이 추천 시스템은 어떻게 작동하나요?
     </a>
-  </div>
-
-  <!-- 챗봇 섹션 (추천 결과 후 표시) -->
-  <div id="chatbot-section">
-    <div class="chat-header">
-      <span>🤖 AI 상담사에게 더 물어보세요</span>
-      <button id="chat-reset-btn">대화 초기화</button>
-    </div>
-    <div id="chat-messages"></div>
-    <div class="chat-input-row">
-      <input type="text" id="chat-input" placeholder="궁금한 점을 입력하세요..." maxlength="200" />
-      <button id="chat-send-btn">전송</button>
-    </div>
   </div>
 </div>
 
@@ -635,7 +635,7 @@
     appendBubble("bot", welcomeMsg);
 
     document.getElementById("chatbot-section").style.display = "block";
-    document.getElementById("chatbot-section").scrollIntoView({behavior: "smooth", block: "nearest"});
+    document.getElementById("result").scrollIntoView({behavior: "smooth", block: "center"});
   }
 
   function appendBubble(role, text) {

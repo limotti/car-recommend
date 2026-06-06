@@ -658,6 +658,11 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/explain")
+def explain():
+    return render_template("explain.html")
+
+
 @app.route("/predict", methods=["POST"])
 def predict():
     try:

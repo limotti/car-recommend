@@ -213,6 +213,7 @@ CAR_SEATING = {
 }
 
 # ── og:image 대신 직접 시도할 이미지 URL 우선순위 ─────────
+# 서버사이드 검증 없이 첫 URL을 브라우저에 전달 (CDN 핫링크 보호 우회)
 CAR_IMAGE_PRIORITY = {
     "G80_가솔린": [
         "https://www.genesis.com/content/dam/genesis-p2/kr/assets/utility/sns/genesis-kr-g80-fl-og-1200x630.jpg",
@@ -221,6 +222,11 @@ CAR_IMAGE_PRIORITY = {
         "https://www.genesis.com/content/dam/genesis-p2/kr/assets/utility/sns/genesis-kr-gv80-fl-og-1200x630.jpg",
         "https://www.genesis.com/content/dam/genesis-p2/kr/assets/utility/sns/genesis-kr-gv80-og-1200x630.jpg",
     ],
+}
+
+# ── 브라우저 onerror 시 사용할 2순위 fallback URL ─────────
+CAR_IMAGE_FALLBACKS: dict[str, str] = {
+    "GV80_가솔린": "https://www.genesis.com/content/dam/genesis-p2/kr/assets/utility/sns/genesis-kr-gv80-og-1200x630.jpg",
 }
 
 # ── og:image 크롤링 + 캐싱 ──────────────────────────────
@@ -271,11 +277,17 @@ def _fetch_image_direct(urls: list) -> str | None:
 
 
 def load_car_images():
-    """앱 시작 시 1회 — og:image 병렬 크롤링 + 우선순위 직접 URL 병행"""
+    """앱 시작 시 1회 — og:image 병렬 크롤링 + 우선순위 URL 직접 저장"""
     global car_images
     priority_labels = set(CAR_IMAGE_PRIORITY.keys())
 
-    # 우선순위 제외한 레이블 → og:image 크롤링 (고유 URL 중복 제거)
+    # ✅ 우선순위 레이블: 서버 검증 없이 첫 URL 직접 저장
+    # Genesis CDN은 서버사이드 요청(Render IP)은 차단하지만 브라우저 <img src>는 허용
+    # → 브라우저에서 직접 로딩 시도, 실패 시 CAR_IMAGE_FALLBACKS → 그래도 실패 시 gradient
+    for lbl, urls in CAR_IMAGE_PRIORITY.items():
+        car_images[lbl] = urls[0] if urls else None
+
+    # 나머지: og:image 크롤링 (고유 URL 중복 제거)
     unique_urls: dict[str, list[str]] = {}
     for label, url in CAR_URLS.items():
         if label not in priority_labels:
@@ -283,16 +295,9 @@ def load_car_images():
 
     url_to_img: dict[str, str | None] = {}
     with ThreadPoolExecutor(max_workers=8) as ex:
-        og_futs   = {ex.submit(_fetch_og_image,    url):  url
-                     for url in unique_urls}
-        prio_futs = {ex.submit(_fetch_image_direct, urls): lbl
-                     for lbl, urls in CAR_IMAGE_PRIORITY.items()}
-
-        for fut in as_completed({**og_futs, **prio_futs}):
-            if fut in og_futs:
-                url_to_img[og_futs[fut]] = fut.result()
-            else:
-                car_images[prio_futs[fut]] = fut.result()
+        og_futs = {ex.submit(_fetch_og_image, url): url for url in unique_urls}
+        for fut in as_completed(og_futs):
+            url_to_img[og_futs[fut]] = fut.result()
 
     for label, url in CAR_URLS.items():
         if label not in priority_labels:
@@ -757,8 +762,9 @@ def predict():
                     "brand":        info.get("brand", ""),
                     "type":         info.get("type",  ""),
                     "price":        info.get("price", ""),
-                    "car_image":    car_images.get(cheapest),
-                    "official_url": CAR_URLS.get(cheapest, ""),
+                    "car_image":          car_images.get(cheapest),
+                    "car_image_fallback": CAR_IMAGE_FALLBACKS.get(cheapest),
+                    "official_url":       CAR_URLS.get(cheapest, ""),
                     "reasons":      [
                         "현재 조건 기준 구매 가능한 최저가 차종",
                         "첫 차로 적합한 소형 SUV",
@@ -789,8 +795,9 @@ def predict():
                 "brand":        info.get("brand", ""),
                 "type":         info.get("type",  ""),
                 "price":        info.get("price", ""),
-                "car_image":    car_images.get(lbl),          # og:image (None이면 fallback)
-                "official_url": CAR_URLS.get(lbl, ""),
+                "car_image":          car_images.get(lbl),          # og:image (None이면 fallback)
+                "car_image_fallback": CAR_IMAGE_FALLBACKS.get(lbl),  # 브라우저 onerror용
+                "official_url":       CAR_URLS.get(lbl, ""),
                 "reasons":      generate_reasons(inp, lbl),  # 추천 이유 TOP3
             })
 

@@ -510,6 +510,17 @@
     }
   });
 
+  // 이미지 로딩 실패 시: 2순위 URL 시도 → 없으면 이미지 숨김 (gradient fallback)
+  function onImgError(el) {
+    const fb = el.getAttribute('data-fallback');
+    if (fb) {
+      el.removeAttribute('data-fallback');
+      el.src = fb;
+    } else {
+      el.style.display = 'none';
+    }
+  }
+
   function renderResult(data) {
     const grid    = document.getElementById("card-grid");
     const banner  = document.getElementById("fallback-banner");
@@ -538,9 +549,13 @@
       const wrapperBg   = car.brand === "제네시스"
         ? "linear-gradient(135deg, #B49A6A 0%, #8B7355 100%)"
         : "linear-gradient(135deg, #1a2b4a 0%, #2563eb 100%)";
-      const imgHtml   = car.car_image
+      const fallbackAttr = car.car_image_fallback
+        ? `data-fallback="${car.car_image_fallback}"`
+        : "";
+      const imgHtml = car.car_image
         ? `<img src="${car.car_image}" alt="${car.recommendation}"
-               onerror="this.style.display='none'" />`
+               ${fallbackAttr}
+               onerror="onImgError(this)" />`
         : "";
 
       const reasonsHtml = (car.reasons && car.reasons.length)

@@ -215,12 +215,11 @@ CAR_SEATING = {
 # ── og:image 대신 직접 시도할 이미지 URL 우선순위 ─────────
 CAR_IMAGE_PRIORITY = {
     "G80_가솔린": [
-        "https://www.genesis.com/content/dam/genesis/kr/ko/models/g80/2025/highlights/genesis-g80-2025-highlights-kv.jpg",
-        "https://www.genesis.com/content/dam/genesis/kr/ko/models/g80/highlights/genesis-g80-highlights-kv.jpg",
+        "https://www.genesis.com/content/dam/genesis-p2/kr/assets/utility/sns/genesis-kr-g80-fl-og-1200x630.jpg",
     ],
     "GV80_가솔린": [
-        "https://www.genesis.com/content/dam/genesis/kr/ko/models/gv80/2025/highlights/genesis-gv80-2025-highlights-kv.jpg",
-        "https://www.genesis.com/content/dam/genesis/kr/ko/models/gv80/highlights/genesis-gv80-highlights-kv.jpg",
+        "https://www.genesis.com/content/dam/genesis-p2/kr/assets/utility/sns/genesis-kr-gv80-fl-og-1200x630.jpg",
+        "https://www.genesis.com/content/dam/genesis-p2/kr/assets/utility/sns/genesis-kr-gv80-og-1200x630.jpg",
     ],
 }
 
@@ -243,12 +242,13 @@ def _fetch_og_image(url: str) -> str | None:
         tag  = (soup.find("meta", property="og:image") or
                 soup.find("meta", attrs={"name": "og:image"}))
         if tag and tag.get("content"):
-            img = tag["content"]
-            # 상대 경로 → 절대 URL 변환
-            if img.startswith("/"):
-                from urllib.parse import urlparse
-                p = urlparse(url)
-                img = f"{p.scheme}://{p.netloc}{img}"
+            img = tag["content"].strip()
+            # 상대경로 → 절대 URL 변환 (urljoin이 /path, //host/path, 상대경로 전부 처리)
+            from urllib.parse import urljoin
+            img = urljoin(url, img)
+            # 추가 보정: /content/dam/... 형태로 남아있으면 제네시스 도메인 강제 prefix
+            if img.startswith("/content/dam/"):
+                img = "https://www.genesis.com" + img
             return img
     except Exception:
         pass

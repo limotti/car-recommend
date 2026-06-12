@@ -1,5 +1,5 @@
 """
-app.py - 차량 추천 Flask 서버 (v4 모델 기반)
+app.py - 차량 추천 Flask 서버 (v2 모델 기반)
 폴백 전략:
   Level 0: ML 예측 결과가 예산 내  → 정상 추천
   Level 1: 20% 완화 후 재예측      → "조건 일부 완화" 안내
@@ -557,8 +557,8 @@ def generate_reasons(inp: dict, label: str) -> list:
 def load_models():
     with open(MODEL_DIR / "stage1_model.pkl", "rb") as f:
         s1 = pickle.load(f)
-    with open(MODEL_DIR / "fuel_clfs.pkl", "rb") as f:
-        fuel_clfs = pickle.load(f)
+    with open(MODEL_DIR / "stage2_model.pkl", "rb") as f:
+        s2 = pickle.load(f)
     with open(MODEL_DIR / "encoder.pkl", "rb") as f:
         enc = pickle.load(f)
     with open(MODEL_DIR / "label_encoder.pkl", "rb") as f:
@@ -567,9 +567,11 @@ def load_models():
         le_family = pickle.load(f)
     with open(MODEL_DIR / "col_order_base.pkl", "rb") as f:
         col_order = pickle.load(f)
-    return s1, fuel_clfs, enc, le_full, le_family, col_order
+    with open(MODEL_DIR / "col_order_s2.pkl", "rb") as f:
+        col_order_s2 = pickle.load(f)
+    return s1, s2, enc, le_full, le_family, col_order, col_order_s2
 
-s1_model, fuel_clfs, encoder, le_full, le_family, col_order = load_models()
+s1_model, s2_model, encoder, le_full, le_family, col_order, col_order_s2 = load_models()
 
 
 # ── 피처 엔지니어링 ────────────────────────────────────
@@ -609,19 +611,15 @@ def postprocess(pred_label, fuel_enc):
 
 def predict_single(input_dict):
     """ML 파이프라인으로 단일 추천 차종 반환"""
-    df  = pd.DataFrame([input_dict])
-    X   = build_X(df)
+    df = pd.DataFrame([input_dict])
+    X  = build_X(df)
 
-    family = le_family.inverse_transform(s1_model.predict(X))[0]
+    family_idx = int(s1_model.predict(X)[0])
+    X_s2 = X.copy()
+    X_s2["예측_계열"] = family_idx
+    X_s2 = X_s2[col_order_s2]
 
-    if family in SINGLE_FUEL:
-        label = f"{family}_{SINGLE_FUEL[family]}"
-    elif family in fuel_clfs:
-        clf, fuel_le = fuel_clfs[family]
-        fuel  = fuel_le.inverse_transform(clf.predict(X))[0]
-        label = f"{family}_{fuel}"
-    else:
-        label = f"{family}_가솔린"
+    label = le_full.inverse_transform(s2_model.predict(X_s2))[0]
 
     fuel_enc = int(encoder.transform(df[CAT_COLS])[0][CAT_COLS.index("연료선호")])
     return postprocess(label, fuel_enc)
